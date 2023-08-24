@@ -1,0 +1,1 @@
+mkdir -p ~/.themes/blank/xfwm4 && touch ~/.themes/blank/xfwm4/themerc
