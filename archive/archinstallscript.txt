@@ -1,0 +1,74 @@
+gdisk /dev/nvme0n1
+n
+
+
+1GiB
+EF00
+
+n
+
+
+
+
+w
+
+cryptsetup luksFormat /dev/nvme0n1p2
+cryptsetup open /dev/nvme0n1p2 luks
+mkfs.vfat -F32 -n feet\ pics /dev/nvme0n1p1
+mkfs.btrfs -L child\ porn /dev/mapper/luks
+mount /dev/mapper/luks /mnt
+btrfs sub create /mnt/@
+btrfs sub create /mnt/@swap
+btrfs sub create /mnt/@home
+btrfs sub create /mnt/@pkg
+btrfs sub create /mnt/@snapshots
+umount /mnt
+mount -o noatime,nodiratime,compress=zstd,space_cache=v2,ssd,subvol=@ /dev/mapper/luks /mnt
+mkdir -p /mnt/{boot,home,var/cache/pacman/pkg,.snapshots,btrfs}
+mount -o noatime,nodiratime,compress=zstd,space_cache=v2,ssd,subvol=@home /dev/mapper/luks /mnt/home
+mount -o noatime,nodiratime,compress=zstd,space_cache=v2,ssd,subvol=@pkg /dev/mapper/luks /mnt/var/cache/pacman/pkg
+mount -o noatime,nodiratime,compress=zstd,space_cache=v2,ssd,subvol=@snapshots /dev/mapper/luks /mnt/.snapshots
+mount -o noatime,nodiratime,compress=zstd,space_cache=v2,ssd,subvolid=5 /dev/mapper/luks /mnt/btrfs
+mount /dev/nvme0n1p1 /mnt/boot
+pacstrap /mnt linux linux-firmware base btrfs-progs amd-ucode neovim
+genfstab -U /mnt >> /mnt/etc/fstab
+arch-chroot /mnt/
+echo mama > /etc/hostname
+echo LANG=en_GB.UTF-8 > /etc/locale.conf
+nvim /etc/locale.gen
+/en_GB
+i
+[backspace] [arrow down] [backspace] [esc] :x!
+# #en_GB.UTF-8 UTF-8
+# #en_GB ISO-8859-1
+
+locale-gen
+
+nvim /etc/hosts:
+#<ip-address>	<hostname.domain.org>	<hostname>
+127.0.0.1	<YOUR-HOSTNAME>.localdomain	<YOUR-HOSTNAME>
+::1		localhost.localdomain	localhost
+
+
+nvim /etc/mkinitcpio.conf
+HOOKS=(base keyboard udev autodetect modconf block keymap consolefont encrypt btrfs filesystems)
+mkinitcpio -p linux
+bootctl install --esp-path=/boot
+blkid -s UUID -o value /dev/nvme0n1p2
+cd /boot/loader/entries --mkdir && touch arch.conf && nvim arch.conf
+title Arch Linux
+linux /vmlinuz-linux
+initrd /amd-ucode.img
+initrd /initramfs-linux.img
+options cryptdevice=UUID=<>:luks:allow-discards root=/dev/mapper/luks rootflags=subvol=@ rd.luks.options=discard rw
+
+nvim /boot/loader/loader.conf
+
+default arch.conf
+timeout 4
+console-mode max
+editor no
+
+exit
+umount -R /mnt
+reboot
